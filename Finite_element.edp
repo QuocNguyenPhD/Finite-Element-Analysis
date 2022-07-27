@@ -82,7 +82,7 @@ errorH1 = sqrt(errorL2^2 + int2d(Th)((dx(u)-dx(uh))^2+(dy(u)-dy(uh))^2));
 cout << "H1-error relative is " << errorH1/normH1<< endl;
 
 
-/*-------------problem 2 (heat equation)-----------*/
+/*-------------problem 2 (2D Poisonn problem)-----------*/
 // problem 2
 // Uxx+Uyy+X*U= (X+X^2)*sin(Y)
 // U(0,y)=0, U(X,0)=0

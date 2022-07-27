@@ -28,7 +28,33 @@ plot(Th, wait=true);
 
 fespace Vh(Th, P1);
 
-Vh uh, vh, fh1, fh2;
+
+
+func f=-x*y*sin(t*x*y) + t^2*(x^2+y^2)*cos(t*x*y) - 2.0*x;
+func uex= 5 + cos(t*x*y) + x*y^2;
+
+Vh uh, vh, uex;
+
+
+problem Heat2D (uh, vh, solver=LU)=
+	int2d(Th)(-(dx(vh)*dx(uh)+dy(vh)*dy(uh)))
+	-int2d(Th)(f*vh)
+	+on(1,2,3,4,u=uex);
+
+
+//----------Declare More Variable About The Time Derivative----------//
+
+real dt=0.1; //Time step
+int nbiter=10;
+int freqplot=10;  //plot solution every freqplot iteration
+int freqerror=10; //compute error every freqerror iteration
+
+
+
+
+
+
+
 
 
 
