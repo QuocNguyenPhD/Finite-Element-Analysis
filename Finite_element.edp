@@ -1,0 +1,121 @@
+
+
+
+
+/* ----- Problem Solves ------ */
+//Domain: Omega=[0,1]
+
+//Problem 1
+// -u_xx = 1, 0 < x < 1
+// u(0)=0 and u(1)=1
+// Exact solution is -x^2/2 + 3x/2 
+
+/* ----- END Problem Solves ------ */
+
+
+
+/* ----- Declare/Define user variables ----- */
+int n=100; //degree of freedom
+real a,b,c,d;
+int nx, ny;
+bool debug= true;
+/* ----- END Declare/Define user variables ----- */
+
+
+
+/* ----- Mesh Generation ----- */
+a=0;b=20;c=0;d=10;
+border rect1(t=0,1){x=a+(b-a)*t;y=c;label=1;};
+border rect2(t=0,1){x=b;y=c+(d-c)*t;label=2;};
+border rect3(t=0,1){x=a+(b-a)*(1-t);y=d;label=3;};
+border rect4(t=0,1){x=a;y=c+(d-c)*(1-t);label=4;};
+nx=40;ny=20;
+// plot the rectangle
+mesh Th= buildmesh(rect1(nx)+ rect2(ny)+rect3(nx)+rect4(ny));
+
+
+
+plot(Th,wait=debug);
+
+fespace Vh(Th,P1);
+
+Vh uh, vh;
+
+Vh fh1, fh2;
+fh1=0;
+
+problem Poisson (uh, vh, solver=LU)=
+     int2d(Th)( //add bilinear part
+        dx(uh)*dx(vh)
+     )
+	+int2d(Th)( //add bilinear part
+        dy(uh)*dy(vh)
+     )
+
+     + int2d(Th)( //linear part
+        -fh1*vh
+     )
+     +on(4,uh=0.0)
+     +on(2,uh=1.0);
+
+
+Poisson;
+
+
+plot(uh, wait=true, dim=2, fill=true, ps="poisson_2d_uh.ps");
+
+// error approximation
+real errorH1, normH1;
+real errorL2, normL2;
+
+func uexact= (x-a)/(a+b);
+
+Vh u = uexact;
+
+normL2 = sqrt(int2d(Th)(u^2));
+errorL2 = sqrt(int2d(Th)(u-uh)^2) ;
+cout << "L2-error relative is " << errorL2/ normL2 << endl;
+
+
+normH1 = sqrt(normL2^2 + int2d(Th)(dx(u)^2)+ int2d(Th)((dy(u)-dy(uh))^2));
+errorH1 = sqrt(errorL2^2 + int2d(Th)((dx(u)-dx(uh))^2+(dy(u)-dy(uh))^2));
+cout << "H1-error relative is " << errorH1/normH1<< endl;
+
+
+/*-------------problem 2 (heat equation)-----------*/
+// problem 2
+// Uxx+Uyy+X*U= (X+X^2)*sin(Y)
+// U(0,y)=0, U(X,0)=0
+
+
+
+//decare variable
+
+
+fh2= (x+x^2)*sin(y);
+
+
+problem Heat (uh, vh, solver=LU)=
+     int2d(Th)( //add bilinear part
+        dx(uh)*dx(vh) + dy(uh)*dy(vh) + x*uh*vh
+     )
+     + int2d(Th)( //linear part
+        -fh2*vh
+     )
+     +on(1,2,3,4,uh=x*sin(y));
+Heat;
+
+plot(uh,wait=true, dim=2, fill=true, ps="heat_2d_uh.ps" );
+
+// Error Analysis
+
+Vh HeatExact= x*sin(y);
+
+normL2 = sqrt(int2d(Th)(HeatExact^2));
+errorL2 = sqrt(int2d(Th)(HeatExact-uh)^2) ;
+cout << "L2-error relative to the heat equation is " << errorL2/ normL2 << endl;
+
+
+normH1 = sqrt(normL2^2 + int2d(Th)(dx(HeatExact)^2)+ int2d(Th)((dy(HeatExact)-dy(uh))^2));
+errorH1 = sqrt(errorL2^2 + int2d(Th)((dx(HeatExact)-dx(uh))^2+(dy(HeatExact)-dy(uh))^2));
+cout << "H1-error relative to the Heat equation  is " << errorH1/normH1<< endl;
