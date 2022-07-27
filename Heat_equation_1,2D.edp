@@ -1,2 +1,52 @@
 //----------problem1--------------//
+// d_t(u) - (d_xx(u) + d_yy(u) ) = f(x,y,t)
+// Uexact= 5 + cos(t*x*y) + x*y^2
+// u(x,0,t)=5, u(0,x,t)=5
+//-------END OF PROBLEM 1--------//
+
+
+//------declaring variable-------//
+real a,b,c,d;   //border of the mesh
+int  n, nx,ny;         //initialization
+func Uexact= 5 + cos(t*x*y) + x*y^2;
+
+//-------------END---------------//
+
+
+//--------Mesh Generation-------//
+a=0;b=20;c=0;d=10;
+border rect1(t=0,1){x=a+(b-a)*t;y=c;label=1;};
+border rect2(t=0,1){x=b;y=c+(d-c)*t;label=2;};
+border rect3(t=0,1){x=a+(b-a)*(1-t);y=d;label=3;};
+border rect4(t=0,1){x=a;y=c+(d-c)*(1-t);label=4;};
+nx= 20; ny=40;
+
+
+// plot mesh
+mesh Th= buildmesh(rect1(nx)+rect2(ny)+rect3(nx)+rect4(ny));
+plot(Th, wait=true);
+
+fespace Vh(Th, P1);
+
+Vh uh, vh, fh1, fh2;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
