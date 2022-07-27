@@ -8,6 +8,7 @@
 //------declaring variable-------//
 real a,b,c,d;   //border of the mesh
 int  n, nx,ny;         //initialization
+real t=0; //Initial time
 func Uexact= 5 + cos(t*x*y) + x*y^2;
 
 //-------------END---------------//
@@ -33,13 +34,15 @@ fespace Vh(Th, P1);
 func f=-x*y*sin(t*x*y) + t^2*(x^2+y^2)*cos(t*x*y) - 2.0*x;
 func uex= 5 + cos(t*x*y) + x*y^2;
 
-Vh uh, vh, uex;
+Vh uh, vh;
+Vh uex;
 
 
 problem Heat2D (uh, vh, solver=LU)=
 	int2d(Th)(-(dx(vh)*dx(uh)+dy(vh)*dy(uh)))
 	-int2d(Th)(f*vh)
-	+on(1,2,3,4,u=uex);
+	+on(1,2,3,4,uh=uex);
+
 
 
 //----------Declare More Variable About The Time Derivative----------//
@@ -48,13 +51,21 @@ real dt=0.1; //Time step
 int nbiter=10;
 int freqplot=10;  //plot solution every freqplot iteration
 int freqerror=10; //compute error every freqerror iteration
+Vh un = 5.0 + cos(t*x*y) + x*y^2;
+
+//----------END of Declaring time derivative variable------------//
 
 
+//------------Loop of solving problem-----------------------//
+for(int n=1, n<= nbiter, n++){
+	t=n*dt;
+	cout<<"Time= "<< t <<endl;
+	Heat2D;
+	un= uh;
+	cout<< "solution at time " << t <<"is "<< un<< endl;
+	
 
-
-
-
-
+}
 
 
 
