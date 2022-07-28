@@ -1,0 +1,157 @@
+// References to online documentation
+// (general documentation) https://doc.freefem.org/documentation/index.html
+// Heat Equation Pb in 2D
+
+
+
+/* ----- Problem Solves ------ */
+//Domain: Omega=[a,b]x[c,d]
+//Time interval [0,T]=[0,1]
+
+//Problem 1
+// d_t(u) - (u_xx+u_yy) = f(x,y)
+// u=uexact on boundary
+// Initial condition = exact solution at t=0
+// Exact solution is u(x,y,t) = 5 + cos(t*x*y) + x*y^2
+// Compute associated source term f.
+
+
+//Problem 2 in exercise.
+// Change equation to
+// d_t(u) - (u_xx+u_yy) + v.grad(u) = f(x,y)
+// with v a given vector (ex: v(x,y)=(x^2,xy) or v(x,y,t)=(cos(tx), sin(ty))
+// u=uexact on boundary
+// Initial condition = exact solution at t=0
+// Exact solution is u(x,y)= x*sin(y)
+// Compute associated source term f and do convergence tests.
+/* ----- END Problem Solves ------ */
+
+
+
+/* ----- Declare/Define user variables ----- */
+real dt=0.1; //Time step
+int nbiter=10; //Number time iteration
+int nx=20; //degree of freedom in x direction
+int ny=10; //degree of freedom in y direction
+
+//Output varibles
+int freqplot=10;  //plot solution every freqplot iteration
+int freqerror=10; //compute error every freqerror iteration
+
+//Domain variables
+real a=0;
+real b=20;
+real c=0;
+real d=10;
+
+//Time
+real t;
+
+//Plots and Errors variable
+real errorL2, normL2;
+real errorH1, normH1;
+/* ----- END Declare/Define user variables ----- */
+
+
+
+/* ----- Define source terms and exact solutions as functions ----- */
+// Declare/Define source term
+func f = -x*y*sin(t*x*y) + t^2*(x^2+y^2)*cos(t*x*y) - 2.0*x;
+
+// Declare/Define exact solution and its projection on Vh
+func uex = 5 + cos(t*x*y) + x*y^2;
+/* ----- END Define source terms and exact solutions as functions ----- */
+
+
+
+/* ----- Mesh Generation ----- */
+// Borders
+real L=b-a;
+real H=d-c;
+border rect1(t=0,1){x=a+L*t;y=c;label=1;};
+border rect2(t=0,1){x=b;y=c+H*t;label=2;};
+border rect3(t=0,1){x=a+L*(1-t);y=d;label=3;};
+border rect4(t=0,1){x=a;y=c+H*(1-t);label=4;};
+
+// Domain
+mesh Th = buildmesh(rect1(nx)+rect2(ny)+rect3(nx)+rect4(ny));
+plot(Th, wait=true); //Display mesh
+//plot(Th, wait=true, ps="heat_eq_2d_mesh.ps"); //Display and save mesh
+/* ----- END Mesh Generation ----- */
+
+
+
+/* ----- Finite Element Space P1 Generation ----- */
+// Define FE P2 space
+fespace Vh (Th, P2);
+
+// Declare approximation/test functions
+Vh u, v;
+Vh un; //Solution at time tn=t*dt
+
+// Declare projection exact solution
+Vh uexh;
+/* ----- END Finite Element Space P1 Generation ----- */
+
+
+
+/* ----- Weak Formulation Poisson 2D problem ----- */
+problem HeatEqPb1 (u, v, solver=LU)=
+     int2d(Th)( //add bilinear part
+        dx(u)*dx(v) + dy(u)*dy(v)
+     )
+     + int2d(Th)( //linear part
+        -f*v
+     )
+     +on(1,2,3,4,u=uex);
+/* ----- END Weak Formulation Poisson 2D problem ----- */
+
+
+/* ----- Initialize time and temperature un ----- */
+t = 0.0;
+un = 5.0 + cos(t*x*y) + x*y^2;
+/* ----- END Initialize time and temperature un ----- */
+
+/* ----- Solve problem + plot solution ----- */
+for(int n=1; n<=nbiter; n++)
+{
+        // Update time
+        t=dt*n;
+
+        cout<< "***************************"<<endl;
+        cout<< "Time = " << n*dt <<endl;
+
+        // Solve problem
+        HeatEqPb1;
+
+        // Update temperature
+        un=u;
+
+        // Plot Solution
+        if (n%freqplot==0)
+        {
+           plot(u, wait=true, dim=2);
+        }
+
+        // Compute L2-H1 error
+        if (n%freqerror==0)
+        {
+           uexh=uex; //Projection uex on Vh
+           //Compute L2 relative error
+           normL2 = sqrt(int2d(Th)(uexh^2));
+           errorL2 = sqrt(int2d(Th)(uexh-u)^2);
+           cout << "L2-error relative is " << errorL2/normL2 << endl;
+
+           // Compute H1 relative error
+           normH1 = sqrt(normL2^2 + int2d(Th)(dx(uexh)^2 + dy(uexh)^2));
+           errorH1 = sqrt(errorL2^2 + int2d(Th)((dx(uexh)-dx(u))^2 + (dy(uexh)-dy(u))^2));
+           cout << "H1-error relative is " << errorH1/normH1 << endl;
+        }
+}
+
+/* ----- END Solve problem + plot solution----- */
+
+
+
+/*  -----------   END PROGRAM/CLOSE FreeFem  --------------   */
+// Press Esc to close FreeFemm++
