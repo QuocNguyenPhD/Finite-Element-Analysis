@@ -98,10 +98,10 @@ Vh uexh;
 /* ----- Weak Formulation Poisson 2D problem ----- */
 problem HeatEqPb1 (u, v, solver=LU)=
      int2d(Th)( //add bilinear part
-        dx(u)*dx(v) + dy(u)*dy(v)
+        u*v+dx(u)*dx(v) + dy(u)*dy(v)
      )
      + int2d(Th)( //linear part
-        -f*v
+        -un*v-f*v
      )
      +on(1,2,3,4,u=uex);
 /* ----- END Weak Formulation Poisson 2D problem ----- */
