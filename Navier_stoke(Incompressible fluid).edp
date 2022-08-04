@@ -1,0 +1,250 @@
+// References to online documentation
+// (general documentation) https://doc.freefem.org/documentation/index.html
+// Navier-Stokes Equations Pb in 2D - coupled formulation
+
+
+
+/* ----- Problem Solves ------ */
+//Domain: Omega=[-1,1]x[-1,1]
+//Time interval [0,T]=[0,1]
+
+//Problem
+// d_t(u) - nu*(u_xx+u_yy) + grad(p) + (u.grad)u = f(x,y,t)
+// div(u) = 0
+// u=uexact on boundary
+// Initial condition = exact solution at t=0
+// Exact solution is u1(x,y,t) = pi*sin(t)*sin(2*pi*y)*sin(pi*x)*sin(pi*x)
+// Exact solution is u2(x,y,t) = pi*sin(t)*sin(2*pi*x)*sin(pi*y)*sin(pi*y)
+// Exact solution is p(x,y,t)  = sin(t)*cos(pi*x)*sin(pi*y)
+// Compute associated source term f=[f1, f2]
+
+//Remarks on nonlinear term:
+//ugradu1=u1*dx(u1) + u2*dx(u2)
+//ugradu2=u1*dx(u2) + u2*dx(u2)
+
+// Exercices (coupled formulation)
+// 1) Implement a BDF1 algorithm then
+//    1.a) Explicit treatment of nonlinear term
+//    1.b) Change treatment of nonlinear term to semi implicit
+// 2) Change time stepping to Crank-Nicolson + used Newton iteration
+// 3) Modify algorithm to the EMAC formulation (see literature)
+// Compare error and execution times of all algorithm
+/* ----- END Problem Solves ------ */
+
+
+
+/* ----- Declare/Define user variables ----- */
+//Time/Space discretization varibles
+real dt=0.1; //Time step
+int nbiter=10; //Number time iteration
+int nx=10; //degree of freedom in x direction
+int ny=10; //degree of freedom in y direction
+
+//Viscosity
+real nu=1.0/100.0;
+
+//Divergence Penalty
+real gamma=0.0;
+
+//Output varibles
+int freqplot=10;  //plot solution every freqplot iteration
+int freqerror=10; //compute error every freqerror iteration
+
+//Domain variables
+real a=-1;
+real b=1;
+real c=-1;
+real d=1;
+
+//Time
+real t;
+
+//Errors variable
+real errorL2, normL2;
+real errorH1, normH1;
+real errorL2p, normL2p;
+real errorH1p, normH1p;
+
+// Variables to compute source terms
+real dtu1, dtu2;
+real dxxu1, dyyu1;
+real dxxu2, dyyu2;
+real dxp, dyp;
+real u1e, u2e, dxu1, dyu1, dxu2, dyu2;
+real ugradu1, ugradu2;
+real out1, out2;
+/* ----- END Declare/Define user variables ----- */
+
+
+
+/* ----- Define source terms and exact solutions as functions ----- */
+// Declare/Define exact solution and its projection on Vh
+func u1exact = pi*sin(t)*sin(2.0*pi*y)*sin(pi*x)^2;
+func u2exact = -pi*sin(t)*sin(2.0*pi*x)*sin(pi*y)^2;
+func pexact = sin(t)*cos(pi*x)*sin(pi*y);
+
+// Declare/Define source term
+func real f1(real time){
+   dtu1=pi*cos(time)*sin(2.0*pi*y)*sin(pi*x)*sin(pi*x);
+   dxxu1=2.0*pi^3*sin(time)*sin(2.0*pi*y)*(cos(pi*x)^2-sin(pi*x)^2);
+   dyyu1=-4.0*pi^3*sin(time)*sin(2.0*pi*y)*sin(pi*x)^2;
+   dxp=-pi*sin(time)*sin(pi*x)*sin(pi*y);
+   u1e=pi*sin(time)*sin(2.0*pi*y)*sin(pi*x)^2;
+   u2e=-pi*sin(time)*sin(2.0*pi*x)*sin(pi*y)^2;
+   dxu1=2.0*pi^2*sin(time)*sin(2.0*pi*y)*sin(pi*x)*cos(pi*x);
+   dyu1=2.0*pi^2*sin(time)*sin(pi*x)*sin(pi*x)*cos(2.0*pi*y);
+   ugradu1=u1e*dxu1 + u2e*dyu1;
+   out1=dtu1 - nu*(dxxu1+dyyu1) + ugradu1 + dxp;
+   return out1;
+}
+func real f2(real time){
+   dtu2=-pi*cos(time)*sin(2.0*pi*x)*sin(pi*y)^2;
+   dxxu2=4.0*pi^3*sin(time)*sin(2.0*pi*x)*sin(pi*y)^2;
+   dyyu2=-2.0*pi^3*sin(time)*sin(2.0*pi*x)*(cos(pi*y)^2-sin(pi*y)^2);
+   dyp=pi*sin(time)*cos(pi*x)*cos(pi*y);
+   u1e=pi*sin(time)*sin(2.0*pi*y)*sin(pi*x)^2;
+   u2e=-pi*sin(time)*sin(2.0*pi*x)*sin(pi*y)^2;
+   dxu2=-2.0*pi^2*sin(time)*sin(pi*y)*sin(pi*y)*cos(2.0*pi*x);
+   dyu2=-2.0*pi^2*sin(time)*sin(2.0*pi*x)*sin(pi*y)*cos(pi*y);
+   ugradu2=u1e*dxu2 + u2e*dyu2;
+   out2=dtu2 - nu*(dxxu2+dyyu2) + ugradu2 + dyp;
+   return out2;
+}
+/* ----- END Define source terms and exact solutions as functions ----- */
+
+
+
+/* ----- Mesh Generation ----- */
+// Borders
+real L=b-a;
+real H=d-c;
+border rect1(t=0,1){x=a+L*t;y=c;label=1;};
+border rect2(t=0,1){x=b;y=c+H*t;label=2;};
+border rect3(t=0,1){x=a+L*(1-t);y=d;label=3;};
+border rect4(t=0,1){x=a;y=c+H*(1-t);label=4;};
+
+// Domain
+mesh Th = buildmesh(rect1(nx)+rect2(ny)+rect3(nx)+rect4(ny));
+plot(Th, wait=true); //Display mesh
+//plot(Th, wait=true, ps="heat_eq_2d_mesh.ps"); //Display and save mesh
+/* ----- END Mesh Generation ----- */
+
+
+
+/* ----- Finite Element Space P1 Generation ----- */
+// Define FE P2-P1 space
+fespace Xh (Th, P2);
+fespace Qh (Th, P1);
+
+// Declare approximation/test functions for velocity
+Xh u1, u2, v1, v2;
+Xh u1n, u2n; //Solution at time tn=t*dt
+Xh u1exp, u2exp;   //Expliticit velocity to compute nonlinear term (for explicit scheme)
+
+// Declare approximation/test functions for pressure
+Qh p, pn, q;
+
+// Declare projection exact solutions
+Xh u1exh, u2exh;
+Qh pexh;
+/* ----- END Finite Element Space P1 Generation ----- */
+
+
+
+/* ----- Weak Formulation Navier-Stokes 2D problem ----- */
+problem NavierStokesPb ([u1,u2,p], [v1,v2,q], solver=UMFPACK)=
+     int2d(Th)( //add bilinear part
+        1.0/dt*(u1*v1 + u2*v2)  //time derivative
+        + nu*(dx(u1)*dx(v1) + dy(u1)*dy(v1) + dx(u2)*dx(v2) + dy(u2)*dy(v2)) //diffusion
+        - p * (dx(v1) + dy(v2))  //grad(p).v
+        + q * (dx(u1) + dy(u2))  // q*div(u)=0
+        + p*q*(0.000000001) //stabilization term
+        + gamma * ( (dx(u1) + dy(u2)) * (dx(v1) + dy(v2)) ) //Penalty term  
+     )
+     + int2d(Th)( //linear part
+        - 1.0/dt*(u1n*v1 + u2n*v2) //rest time derivative
+        + (u1exp*dx(u1exp) + u2exp*dy(u1exp))*v1 //explitcit nonlinear term
+        + (u1exp*dx(u2exp) + u2exp*dy(u2exp))*v2 //explicit nonlinear term
+        - f1(t)*v1 - f2(t)*v2 //source term
+     )
+     +on(1,2,3,4, u1=u1exact, u2=u2exact);
+/* ----- END Weak Formulation Navier-Stokes 2D problem ----- */
+
+
+
+/* ----- Initialize time and temperature un ----- */
+t = 0.0;
+u1n = u1exact;
+u2n = u2exact;
+pn  = pexact;
+/* ----- END Initialize time and temperature un ----- */
+
+
+
+/* ----- Solve problem + plot solution ----- */
+for(int n=1; n<=nbiter; n++)
+{
+        // Update time
+        t=dt*n;
+
+        // Update explicit velocity
+        u1exp=u1n;
+        u2exp=u2n;
+
+        cout<< "***************************"<<endl;
+        cout<< "Time = " << n*dt <<endl;
+
+        // Solve problem
+        NavierStokesPb;
+
+        // Update Velocity and pressure
+        u1n=u1;
+        u2n=u2;
+        pn=p;
+
+        // Plot Solutions
+        if (n%freqplot==0)
+        {
+           plot([u1,u2], wait=true, dim=2);
+           plot(p, wait=true, dim=2);
+        }
+
+        // Compute L2-H1 errors
+        if (n%freqerror==0)
+        {
+           u1exh=u1exact; //Projection u1ex on Vh
+           u2exh=u2exact; //Projection u2ex on Vh
+           pexh=pexact;   //Projection pex on Qh
+
+           //Compute L2 relative error in velocity
+           normL2 = sqrt(int2d(Th)(u1exh^2+u2exh^2));
+           errorL2 = sqrt(int2d(Th)((u1exh-u1)^2+(u2exh-u2)^2));
+           cout << "Velocity L2-error relative is " << errorL2/normL2 << endl;
+
+           //Compute H1 relative error in velocity
+           normH1 = sqrt(normL2^2 + int2d(Th)(dx(u1exh)^2 + dy(u1exh)^2
+                         + dx(u2exh)^2 +dy(u2exh)^2));
+           errorH1 = sqrt(errorL2^2 + int2d(Th)((dx(u1exh)-dx(u1))^2 
+                         + (dy(u1exh)-dy(u1))^2 
+                         + (dx(u2exh)-dx(u2))^2
+                         + (dy(u2exh)-dy(u2))^2));
+           cout << "Velocity H1-error relative is " << errorH1/normH1 << endl;
+
+
+           //Compute L2 relative error in pressure
+           normL2p = sqrt(int2d(Th)(pexh^2));
+           errorL2p = sqrt(int2d(Th)(pexh-p)^2);
+           cout << "Pressure L2-error relative is " << errorL2p/normL2p << endl;
+
+           // Compute H1 relative error in pressure
+           normH1p = sqrt(normL2p^2 + int2d(Th)(dx(pexh)^2 + dy(pexh)^2));
+           errorH1p = sqrt(errorL2p^2 + int2d(Th)((dx(pexh)-dx(p))^2 + (dy(pexh)-dy(p))^2));
+           cout << "Pressure H1-error relative is " << errorH1p/normH1p << endl;
+        }
+}
+/* ----- END Solve problem + plot solution----- */
+
+
+
+/*  -----------   END PROGRAM/CLOSE FreeFem  --------------   */
+// Press Esc to close FreeFemm++
